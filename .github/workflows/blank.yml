@@ -41,7 +41,7 @@ jobs:
           import requests
 
           host = "https://www.bing.com"
-          mkt_codes = ["en-SG"]
+          mkt_codes = ["en-SG", "pt-BR", "en-CA", "fr-CA", "fr-FR", "de-DE", "en-IN", "it-IT", "ja-JP", "zh-CN", "es-ES", "en-GB", "en-US"]
           for mkt in mkt_codes:
             url = host + "/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=" + mkt  # 替换为你要下载图片的网页 URL
 
