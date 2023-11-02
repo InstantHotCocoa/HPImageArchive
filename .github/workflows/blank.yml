@@ -1,0 +1,108 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  schedule:
+    - cron: '0 9 * * *'
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4.7.1
+        with:
+          # Version range or exact version of Python or PyPy to use, using SemVer's version range syntax. Reads from .python-version if unset.
+          python-version: 3.x
+
+      # Runs a single command using the runners shell
+      - name: Run a one-line script
+        run: pip install requests
+
+      - name: Run Python script
+        run: |
+          python - <<EOF
+          import datetime
+          import os
+          import requests
+
+          host = "https://www.bing.com"
+          mkt_codes = ["en-SG"]
+          for mkt in mkt_codes:
+            url = host + "/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=" + mkt  # 替换为你要下载图片的网页 URL
+
+            # 获取网页内容
+            retry = 0
+            while True:
+              if retry == 3:
+                raise Exception("retried 3 times")
+              try:
+                response = requests.get(url)
+              except Exception as e:
+                print(f"An exception occurred: {e}")
+                retry += 1
+                continue
+              if not response.status_code >= 200 and response.status_code < 300:
+                retry += 1
+                continue
+              else:
+                print(response.text)
+                startdate = response.json()["images"][0]["startdate"]
+                download_img = host + response.json()["images"][0]["urlbase"] + "_1920x1200.jpg&rf=LaDigue_1920x1200.jpg"
+                download_UHD = host + response.json()["images"][0]["urlbase"] + "_UHD.jpg&rf=LaDigue_1920x1200.jpg"
+                break
+
+            # 创建图片下载目录
+            if mkt=="en-SG":
+              mkt = "ROW"
+            today = datetime.date.today()
+            formatted_date = today.strftime('%Y%m%d')
+            path = os.path.join("images", formatted_date, mkt)
+            os.makedirs(path, exist_ok=True)
+
+            # 下载所有图片
+            img_data = requests.get(download_img, stream=True)
+            img_name = download_img.split("=")[1].split("&")[0]
+            with open(os.path.join(path, img_name), "wb") as f:
+              for chunk in img_data.iter_content(chunk_size=1024):
+                if chunk:
+                  f.write(chunk)
+            img_data = requests.get(download_UHD, stream=True)
+            img_name = download_UHD.split("=")[1].split("&")[0]
+            with open(os.path.join(path, img_name), "wb") as f:
+              for chunk in img_data.iter_content(chunk_size=1024):
+                if chunk:
+                  f.write(chunk)
+          EOF
+
+      - name: Get and save today's date
+        id: save-date
+        run: |
+          echo "Getting today's date"
+          DATE=$(date +'%Y-%m-%d')
+          echo "Today's date is $DATE"
+          echo "::set-output name=date::$DATE"
+
+      # Runs a set of commands using the runners shell
+      - name: Run a multi-line script
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git checkout ${{ steps.save-date.outputs.date }}
+          git add .
+          git commit -m "${{ steps.save-date.outputs.date }}"
+          git push --set-upstream origin ${{ steps.save-date.outputs.date }}
